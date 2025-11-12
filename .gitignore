@@ -10,3 +10,4 @@ wheels/
 .venv
 .cache/
 .env
+.streamlit/

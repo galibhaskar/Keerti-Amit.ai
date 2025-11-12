@@ -42,7 +42,7 @@ def chunk_text(
 # ------- File I/O -------
 def read_file_text(path: str) -> str:
     """
-    Read text from a file, handling various formats.
+    Read text from a file, handling various formats including PDF.
 
     Args:
         path: Path to the file
@@ -56,11 +56,41 @@ def read_file_text(path: str) -> str:
             with open(path, "r", encoding="utf-8", errors="ignore") as f:
                 obj = json.load(f)
             return json.dumps(obj, ensure_ascii=False)
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            return f.read()
+        elif ext == ".pdf":
+            # Use pypdf to extract text from PDF
+            try:
+                from pypdf import PdfReader
+                reader = PdfReader(path)
+                text_parts = []
+                for page in reader.pages:
+                    try:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text_parts.append(page_text)
+                    except Exception as e:
+                        print(f"[WARN] Could not extract text from PDF page: {e}")
+                        continue
+                if text_parts:
+                    return "\n\n".join(text_parts)
+                else:
+                    raise ValueError("No text could be extracted from PDF")
+            except ImportError:
+                print("[WARN] pypdf not installed, falling back to binary read")
+                raise
+            except Exception as e:
+                print(f"[ERROR] PDF extraction failed: {e}")
+                raise
+        else:
+            # Try reading as text file
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                return f.read()
     except Exception:
-        with open(path, "rb") as f:
-            return f.read().decode("utf-8", errors="ignore")
+        # Last resort: try binary read and decode
+        try:
+            with open(path, "rb") as f:
+                return f.read().decode("utf-8", errors="ignore")
+        except Exception as e:
+            raise ValueError(f"Could not read file {path}: {e}")
 
 
 def load_documents(path: str) -> list:

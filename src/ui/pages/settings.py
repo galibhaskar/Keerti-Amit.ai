@@ -8,8 +8,8 @@ from services.config_manager import (
     get_flashcard_statistics,
     get_battle_statistics,
 )
-from services.practice import load_flashcard_history
-from services.battle import load_battle_history, format_history_option_label, save_battle_history
+from services.practice import load_flashcard_history, format_history_option_label, save_flashcard_history
+from services.battle import load_battle_history, format_history_option_label as format_battle_history_label, save_battle_history
 from config.models import PROVIDERS
 import json
 
@@ -97,8 +97,10 @@ with tab2:
     with col1:
         st.markdown("### 📚 Practice Mode")
         flashcard_stats = get_flashcard_statistics()
+        st.metric("Total Sessions", flashcard_stats["total_sessions"])
         st.metric("Total Flashcards", flashcard_stats["total_flashcards"])
         st.metric("Topics Covered", flashcard_stats["topics_covered"])
+        st.metric("Avg Flashcards/Session", flashcard_stats["average_flashcards_per_session"])
         
         if flashcard_stats["modes_used"]:
             st.markdown("**Modes Used:**")
@@ -121,38 +123,78 @@ with tab3:
     if not history:
         st.info("No flashcard history found.")
     else:
-        st.write(f"Total flashcards: {len(history)}")
+        # Calculate total flashcards across all sessions
+        total_flashcards = sum(len(session.get("flashcards", [])) for session in history)
+        st.write(f"Total sessions: {len(history)}")
+        st.write(f"Total flashcards: {total_flashcards}")
         
-        # Filter options
-        col1, col2 = st.columns(2)
-        with col1:
-            topics = sorted(set(entry.get("topic", "Unknown") for entry in history))
-            selected_topic = st.selectbox("Filter by Topic", ["All"] + topics)
+        # Session selector
+        session_indices = list(range(len(history)))
+        selected_idx = st.selectbox(
+            "Select Practice Session to View",
+            session_indices,
+            format_func=lambda idx: format_history_option_label(idx, history[idx]),
+            index=0
+        )
         
-        with col2:
-            modes = sorted(set(entry.get("mode", "unknown") for entry in history))
-            selected_mode = st.selectbox("Filter by Mode", ["All"] + modes)
-        
-        # Filter history
-        filtered_history = history
-        if selected_topic != "All":
-            filtered_history = [h for h in filtered_history if h.get("topic") == selected_topic]
-        if selected_mode != "All":
-            filtered_history = [h for h in filtered_history if h.get("mode") == selected_mode]
-        
-        # Display history
-        for idx, entry in enumerate(reversed(filtered_history[-20:]), 1):  # Show last 20
-            with st.expander(f"Flashcard {len(filtered_history) - idx + 1}: {entry.get('topic', 'Unknown')} ({entry.get('mode', 'unknown')})"):
-                quiz_data = entry.get("quiz_data", {})
-                st.write(f"**Topic:** {entry.get('topic', 'Unknown')}")
-                st.write(f"**Mode:** {entry.get('mode', 'unknown')}")
-                st.write(f"**Timestamp:** {entry.get('timestamp', 'Unknown')}")
-                st.write(f"**Concept:** {quiz_data.get('flashcard_concept', 'N/A')}")
-                st.write(f"**Focus:** {quiz_data.get('quiz_text', 'N/A')}")
-                st.info(quiz_data.get('flashcard_rationale', 'N/A'))
+        if selected_idx is not None:
+            session = history[selected_idx]
+            
+            st.markdown("### Session Details")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write(f"**Topic:** {session.get('topic', 'Unknown')}")
+                st.write(f"**Started At:** {session.get('started_at', 'Unknown')}")
+            with col2:
+                st.write(f"**Total Flashcards:** {len(session.get('flashcards', []))}")
+                st.write(f"**Last Updated:** {session.get('updated_at', 'Unknown')}")
+            
+            if session.get('user_id'):
+                st.caption(f"User ID: {session.get('user_id')}")
+            
+            # Display flashcards in the session
+            flashcards = session.get("flashcards", [])
+            if flashcards:
+                st.markdown("### Flashcards in this Session")
+                for idx, flashcard in enumerate(flashcards, start=1):
+                    mode = flashcard.get("mode", "concept")
+                    quiz_data = flashcard.get("quiz_data", {})
+                    timestamp = flashcard.get("timestamp", "")
+                    
+                    # Format mode display
+                    mode_display = {
+                        "concept": "Concept",
+                        "easy": "Easy",
+                        "example": "Example"
+                    }.get(mode, mode.capitalize())
+                    
+                    with st.expander(f"Flashcard {idx}: {quiz_data.get('flashcard_concept', 'N/A')} ({mode_display})", expanded=False):
+                        if timestamp:
+                            st.caption(f"Generated: {timestamp}")
+                        
+                        st.markdown("**Focus:**")
+                        st.success(quiz_data.get('quiz_text', 'N/A'))
+                        
+                        st.markdown("**Concept Title:**")
+                        st.markdown(f"*{quiz_data.get('flashcard_concept', 'N/A')}*")
+                        
+                        st.markdown("**Mode:**")
+                        st.info(mode_display)
+                        
+                        st.markdown("**Rationale:**")
+                        st.info(quiz_data.get('flashcard_rationale', 'N/A'))
+            else:
+                st.warning("No flashcards found in this session.")
+            
+            # Delete button
+            if st.button("🗑️ Delete This Session", type="secondary", key=f"delete_session_{selected_idx}"):
+                history.pop(selected_idx)
+                save_flashcard_history(history)
+                st.success("Session deleted!")
+                st.rerun()
         
         # Export option
-        if st.button("📥 Export History (JSON)"):
+        if st.button("📥 Export All Sessions (JSON)"):
             st.download_button(
                 label="Download JSON",
                 data=json.dumps(history, indent=2),
@@ -176,7 +218,7 @@ with tab4:
         selected_idx = st.selectbox(
             "Select Battle to View",
             battle_indices,
-            format_func=lambda idx: format_history_option_label(idx, history[idx]),
+            format_func=lambda idx: format_battle_history_label(idx, history[idx]),
             index=0
         )
         

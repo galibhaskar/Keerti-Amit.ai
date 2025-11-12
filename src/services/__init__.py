@@ -6,6 +6,8 @@ from services.practice import (
     generate_flashcard,
     save_flashcard_to_json,
     load_flashcard_history,
+    save_flashcard_history,
+    format_history_option_label as format_practice_history_option_label,
     get_structured_quiz_prompt,
 )
 from services.battle import (
@@ -39,6 +41,8 @@ __all__ = [
     "generate_flashcard",
     "save_flashcard_to_json",
     "load_flashcard_history",
+    "save_flashcard_history",
+    "format_practice_history_option_label",
     "get_structured_quiz_prompt",
     # Battle
     "load_battle_history",

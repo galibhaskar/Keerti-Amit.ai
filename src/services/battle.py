@@ -17,6 +17,7 @@ MAX_INTERVIEW_QUESTIONS = 3
 QUESTION_AUDIO_MIME = "audio/mp3"
 CODE_BLOCK_PATTERN = re.compile(r"```.*?```", re.DOTALL)
 INLINE_CODE_PATTERN = re.compile(r"`[^`]+`")
+SOURCE_PATTERN = re.compile(r"^Source:\s*[^\n]+", re.MULTILINE)
 
 
 def load_battle_history() -> List[Dict]:
@@ -77,6 +78,88 @@ def format_history_option_label(index: int, entry: Dict) -> str:
     return f"Battle {label_idx}: {concept}"
 
 
+def clean_context_for_battle(context: str) -> str:
+    """
+    Clean context by removing document source references and document name mentions.
+    This ensures the LLM doesn't reference specific documents in questions.
+
+    Args:
+        context: Raw context string with source references
+
+    Returns:
+        Cleaned context without source references or document names
+    """
+    if not context:
+        return context
+    
+    # Remove "Source: filename.pdf" lines (handles both "Source: filename" and "Source:filename")
+    cleaned = SOURCE_PATTERN.sub("", context)
+    
+    # Remove "Retrieved Context:" header if present
+    cleaned = re.sub(r"^Retrieved Context:\s*", "", cleaned, flags=re.MULTILINE)
+    
+    # Remove document file extensions with common patterns
+    # Pattern 1: "as mentioned in doc1.pdf" or "according to document.pdf"
+    cleaned = re.sub(
+        r"\b(?:as\s+)?(?:mentioned|described|discussed|stated|explained|outlined|covered|presented|shown|indicated|noted|detailed|provided|given|found|listed|defined|referenced|written|documented|found)\s+(?:in|on|within|from|according\s+to|per|based\s+on)\s+[a-zA-Z0-9_\-]+\.(?:pdf|txt|docx?|md|json)\b",
+        "",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    
+    # Pattern 2: "see doc1.pdf" or "refer to document.pdf" or "check document.pdf"
+    cleaned = re.sub(
+        r"\b(?:see|refer\s+to|check|look\s+at|review|consult|examine|open|read|view|access)\s+(?:the\s+)?[a-zA-Z0-9_\-]+\.(?:pdf|txt|docx?|md|json)\b",
+        "",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    
+    # Pattern 3: "in doc1.pdf" or "from document.pdf"
+    cleaned = re.sub(
+        r"\b(?:in|from|of|at)\s+[a-zA-Z0-9_\-]+\.(?:pdf|txt|docx?|md|json)\b",
+        "",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    
+    # Pattern 4: Standalone document names in quotes, parentheses, or brackets
+    # Match opening brackets/parentheses/quotes, then filename, then closing
+    # Split into separate patterns to avoid SyntaxWarning with escape sequences
+    # Match parentheses: (filename.pdf) or [filename.pdf] or {filename.pdf}
+    cleaned = re.sub(r'[\(\[{]\s*[a-zA-Z0-9_\-]+\.(?:pdf|txt|docx?|md|json)\s*[\)\]}]', '', cleaned, flags=re.IGNORECASE)
+    # Match quotes: "filename.pdf" or 'filename.pdf'
+    cleaned = re.sub(r'["\']\s*[a-zA-Z0-9_\-]+\.(?:pdf|txt|docx?|md|json)\s*["\']', '', cleaned, flags=re.IGNORECASE)
+    
+    # Pattern 5: Document references at the start or end of lines
+    cleaned = re.sub(
+        r"^\s*[a-zA-Z0-9_\-]+\.(?:pdf|txt|docx?|md|json)\s*[:\-]\s*",
+        "",
+        cleaned,
+        flags=re.MULTILINE | re.IGNORECASE
+    )
+    
+    # Pattern 6: Remove standalone document names with file extensions (conservative)
+    # Only matches if it appears after whitespace/punctuation and looks like a document reference
+    # This catches remaining edge cases without removing legitimate technical terms
+    cleaned = re.sub(
+        r"(?<![a-zA-Z0-9])(?:doc\d+|document\d*|[a-zA-Z0-9_\-]{1,30}\.(?:pdf|txt|docx?|md|json))(?![a-zA-Z0-9])",
+        "",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    
+    # Clean up separators that had source info
+    cleaned = re.sub(r"^\s*---\s*$", "", cleaned, flags=re.MULTILINE)
+    
+    # Clean up excessive whitespace and empty lines
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    cleaned = re.sub(r" +", " ", cleaned)  # Multiple spaces to single space
+    cleaned = cleaned.strip()
+    
+    return cleaned
+
+
 def prepare_question_content(raw_text: str) -> tuple[str, str]:
     """
     Prepare question content for display and audio.
@@ -105,13 +188,16 @@ def prepare_question_content(raw_text: str) -> tuple[str, str]:
 
 def build_initial_question_prompt(concept: str, context: str) -> str:
     """Build prompt for initial question generation."""
+    # Clean context to remove document source references
+    cleaned_context = clean_context_for_battle(context)
+    
     return f"""
 You are Amit, a senior technical interviewer hiring for a high-impact role. You are preparing to assess the candidate Keerti on the concept below.
 
 Concept focus: {concept.strip()}
 
 Reference material (may be noisy or empty):
-{context}
+{cleaned_context}
 
 Craft the very first interview question Amit will ask Keerti. Stay grounded in the reference material—cite specific situations or facts from it when framing the prompt.
 
@@ -122,6 +208,7 @@ Guidelines:
 4. Start with an accessible difficulty. Set `"difficulty": "foundation"` and design the scenario so a prepared candidate can ease in.
 5. Use clear language but slip in a gentle twist or constraint that reveals whether Keerti is truly thinking.
 6. Avoid quoting long noisy strings verbatim. If you must reference raw text, paraphrase it and replace any double quotes with single quotes.
+7. **CRITICAL: Never mention any document names, file names, or source references (like "doc1.pdf", "document.pdf", etc.) in your question. Act as if the reference material is general knowledge, not from a specific document.**
 
 Respond ONLY with valid JSON:
 {{
@@ -141,6 +228,9 @@ def build_followup_question_prompt(
     latest_assessment: Optional[Dict[str, str]],
 ) -> str:
     """Build prompt for follow-up question generation."""
+    # Clean context to remove document source references
+    cleaned_context = clean_context_for_battle(context)
+    
     transcript_lines = []
     for idx, turn in enumerate(transcript, start=1):
         transcript_lines.append(
@@ -167,7 +257,7 @@ You are Amit continuing a technical interview for a high-stakes role with candid
 Concept focus: {concept.strip()}
 
 Reference material (may be noisy or empty):
-{context}
+{cleaned_context}
 
 Conversation so far:
 {transcript_block}
@@ -182,6 +272,7 @@ Craft the next follow-up question. It must:
 5. Blend simple wording with a tricky constraint so Keerti must think aloud to navigate it.
 6. Stay scenario-based; avoid rote definition or trivia.
 7. Avoid copying raw noisy strings verbatim; paraphrase and swap any double quotes for single quotes.
+8. **CRITICAL: Never mention any document names, file names, or source references (like "doc1.pdf", "document.pdf", etc.) in your question. Act as if the reference material is general knowledge, not from a specific document.**
 
 Respond ONLY with valid JSON:
 {{
@@ -201,13 +292,16 @@ def build_answer_assessment_prompt(
     context: str,
 ) -> str:
     """Build prompt for answer assessment."""
+    # Clean context to remove document source references
+    cleaned_context = clean_context_for_battle(context)
+    
     return f"""
 You are Amit benchmarking Keerti's spoken answer during a live technical interview.
 
 Concept focus: {concept.strip()}
 
 Reference material (may be noisy or empty):
-{context}
+{cleaned_context}
 
 Question asked:
 {question.get("question", "").strip()}
@@ -237,6 +331,9 @@ def build_interview_evaluation_prompt(
     assessments: List[Dict[str, str]],
 ) -> str:
     """Build prompt for final interview evaluation."""
+    # Clean context to remove document source references
+    cleaned_context = clean_context_for_battle(context)
+    
     question_list = "\n".join(
         f"- Q{item.get('id', idx + 1)} ({item.get('difficulty', 'n/a')}) "
         f"[{item.get('focus_area', 'unspecified')}]: {item.get('question', '')} "
@@ -272,7 +369,7 @@ Interview blueprint:
 {question_list}
 
 Reference material (may be noisy or empty):
-{context}
+{cleaned_context}
 
 Interview transcript:
 {transcript_block}
@@ -321,7 +418,9 @@ def generate_battle_llm_response(prompt: str, model: Optional[str] = None) -> st
         "You are Amit, the Rival-Ally interviewer. "
         "Guide Keerti through scenario-based battles by asking probing, real-world questions, "
         "evaluating her spoken responses, and coaching improvement. "
-        "Always answer strictly as a JSON object."
+        "Always answer strictly as a JSON object. "
+        "Never mention document names, file names, or source references in your questions or responses. "
+        "Treat all reference material as general knowledge, not from specific documents."
     )
 
     client = get_groq_client()

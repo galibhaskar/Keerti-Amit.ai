@@ -63,11 +63,15 @@ def get_llm_model(selected_provider: ProviderKey = "OLLAMA"):
     try:
         if backend == "ollama":
             from langchain_ollama import ChatOllama
+            # ChatOllama reads OLLAMA_API_KEY from environment if needed
+            # For local Ollama, no API key is required
             return ChatOllama(model=model_name, temperature=0.3, repeat_penalty=1.1)
 
         if backend == "groq":
             from langchain_groq import ChatGroq
-            return ChatGroq(model=model_name, temperature=0.3, repeat_penalty=1.1)
+            # ChatGroq automatically reads GROQ_API_KEY from environment variables
+            # Ensure GROQ_API_KEY is set in .env file
+            return ChatGroq(model=model_name, temperature=0.3)
     except Exception as exc:
         raise LLMProviderNotAvailable(
             f"Failed to initialize provider '{selected_provider}': {exc}"

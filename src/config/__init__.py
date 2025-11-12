@@ -22,6 +22,8 @@ from config.settings import (
 from config.models import (
     PROVIDERS,
     SYSTEM_PROMPTS,
+    DEFAULT_PROVIDER,
+    DEFAULT_MODEL,
 )
 
 __all__ = [
@@ -40,5 +42,7 @@ __all__ = [
     # Models
     "PROVIDERS",
     "SYSTEM_PROMPTS",
+    "DEFAULT_PROVIDER",
+    "DEFAULT_MODEL",
 ]
 

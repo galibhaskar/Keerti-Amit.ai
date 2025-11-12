@@ -1297,6 +1297,20 @@ wheels = [
 ]
 
 [[package]]
+name = "langchain-chroma"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "chromadb" },
+    { name = "langchain-core" },
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6c/b5/1dfb361793b217c7e8e791edebf5ecbbcc7fed2e9fd998b452c32c701c1f/langchain_chroma-1.0.0.tar.gz", hash = "sha256:ee82c6fbd0c94e5e9942e3b9302f69deea6c58c0e957ff16de6066d896d7a34a", size = 217313, upload-time = "2025-10-17T15:18:54.557Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/05/fd/36d8d37a257d7f5961cea9ef0e1a9616a4b4fc259cad2cbf02416de90215/langchain_chroma-1.0.0-py3-none-any.whl", hash = "sha256:b7adb991090f066f8d5e746a2d338de3116b192cec3990deef3052b7ea07324c", size = 12458, upload-time = "2025-10-17T15:18:53.325Z" },
+]
+
+[[package]]
 name = "langchain-classic"
 version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1366,6 +1380,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b8/9f/0a80b243f1b890cdc2d856f98d2243f49a58621de16fa80a73eba290bcb4/langchain_groq-1.0.0.tar.gz", hash = "sha256:46645591654c36db7ebc624503f26b38544b9aac0d8cf93e8db7105e049dab74", size = 196702, upload-time = "2025-10-17T15:24:30.81Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/03/0a/fd2b7545f63f2b05790c76260dc63b7cc9b0af88aa1c1e14fab9795805c2/langchain_groq-1.0.0-py3-none-any.whl", hash = "sha256:378124c2a5247df720093617afbd2dae28b06fc666372ffe7a279a0ce86b28d0", size = 16841, upload-time = "2025-10-17T15:24:29.348Z" },
+]
+
+[[package]]
+name = "langchain-huggingface"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "huggingface-hub" },
+    { name = "langchain-core" },
+    { name = "tokenizers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ae/85/8ae6fa9e70a4d2647151df59abf8bc658c159936fcb1e508b86c4f6f23b6/langchain_huggingface-1.0.1.tar.gz", hash = "sha256:9e54b81303b60656f88f45e9a876fb4e3ea0bfb5d40715f802c26811fd8cd72b", size = 248461, upload-time = "2025-11-03T19:53:43.072Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/9d/90dc488e426e4dfef63a77b04a06ef816297a1b036075e5fd34a98436875/langchain_huggingface-1.0.1-py3-none-any.whl", hash = "sha256:032325539dd6b2970910356ecfc363283e8b4e51fb1890de40666a52e95e7d53", size = 27920, upload-time = "2025-11-03T19:53:42.173Z" },
 ]
 
 [[package]]
@@ -2768,6 +2796,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pypdf"
+version = "6.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/2b/8795ec0378384000b0a37a2b5e6d67fa3d84802945aa2c612a78a784d7d4/pypdf-6.2.0.tar.gz", hash = "sha256:46b4d8495d68ae9c818e7964853cd9984e6a04c19fe7112760195395992dce48", size = 5272001, upload-time = "2025-11-09T11:10:41.911Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/ba/743ddcaf1a8fb439342399645921e2cf2c600464cba5531a11f1cc0822b6/pypdf-6.2.0-py3-none-any.whl", hash = "sha256:4c0f3e62677217a777ab79abe22bf1285442d70efabf552f61c7a03b6f5c569f", size = 326592, upload-time = "2025-11-09T11:10:39.941Z" },
+]
+
+[[package]]
 name = "pypika"
 version = "0.48.9"
 source = { registry = "https://pypi.org/simple" }
@@ -3215,13 +3252,16 @@ dependencies = [
     { name = "groq" },
     { name = "gtts" },
     { name = "langchain" },
+    { name = "langchain-chroma" },
     { name = "langchain-community" },
     { name = "langchain-groq" },
+    { name = "langchain-huggingface" },
     { name = "langchain-ollama" },
     { name = "langgraph" },
     { name = "langsmith" },
     { name = "matplotlib" },
     { name = "pdf2image" },
+    { name = "pypdf" },
     { name = "qwen-vl-utils" },
     { name = "sentence-transformers" },
     { name = "speechrecognition" },
@@ -3238,13 +3278,16 @@ requires-dist = [
     { name = "groq", specifier = ">=0.33.0" },
     { name = "gtts", specifier = "<=2.5.4" },
     { name = "langchain", specifier = ">=1.0.5" },
+    { name = "langchain-chroma", specifier = ">=0.1.0" },
     { name = "langchain-community", specifier = ">=0.3.0" },
     { name = "langchain-groq", specifier = ">=1.0.0" },
+    { name = "langchain-huggingface", specifier = ">=0.1.0" },
     { name = "langchain-ollama", specifier = ">=1.0.0" },
     { name = "langgraph", specifier = ">=1.0.2" },
     { name = "langsmith", specifier = ">=0.4.41" },
     { name = "matplotlib", specifier = ">=3.10.7" },
     { name = "pdf2image", specifier = ">=1.17.0" },
+    { name = "pypdf", specifier = ">=5.0.0" },
     { name = "qwen-vl-utils", specifier = ">=0.0.14" },
     { name = "sentence-transformers", specifier = ">=5.1.2" },
     { name = "speechrecognition", specifier = ">=3.10.0" },

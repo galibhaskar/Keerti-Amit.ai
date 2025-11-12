@@ -56,21 +56,13 @@ uv sync
 ### Run Streamlit
 
 ```sh
-uv run streamlit run app.py
-```
-
-Or directly:
-```sh
 uv run streamlit run src/app.py
 ```
 
 ### Configuration
 
-Create a `.streamlit/secrets.toml` file with your API keys:
+Create a `.env` file using`.env.local` with your API keys:
 
-```toml
-GROQ_API_KEY = "your-groq-api-key-here"
-```
 
 ### Features
 

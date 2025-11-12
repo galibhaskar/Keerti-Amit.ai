@@ -2,7 +2,7 @@
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 import streamlit as st
 
@@ -11,57 +11,221 @@ from services.llm_client import get_groq_client, generate_groq_response, get_def
 from services.retrieval import retrieve_context_chroma
 
 
-def save_flashcard_to_json(topic: str, mode: str, data: dict, log_file: str = None):
+def save_flashcard_to_session(
+    topic: str,
+    mode: str,
+    data: dict,
+    session_id: str = None,
+    log_file: str = None,
+) -> str:
     """
-    Save flashcard data to a JSON log file.
+    Save flashcard data to a practice session.
+    If session_id is provided, adds flashcard to that session.
+    Otherwise, creates a new session.
 
     Args:
         topic: Topic name
         mode: Difficulty mode
         data: Flashcard data
+        session_id: Optional session ID to add to existing session
         log_file: Optional log file path
+
+    Returns:
+        Session ID (existing or newly created)
     """
     if log_file is None:
         log_file = FLASHCARD_LOG_FILE
 
-    log_entry = {
-        "user_id": st.session_state.get("user_id", "local_user"),
-        "topic": topic,
-        "mode": mode,
-        "timestamp": datetime.now().isoformat(),
-        "quiz_data": data,
-    }
-
-    all_logs = []
+    # Load existing sessions
+    sessions = []
     if os.path.exists(log_file):
         try:
             with open(log_file, 'r', encoding='utf-8') as f:
                 content = f.read().strip()
                 if content:
-                    all_logs = json.loads(content)
+                    sessions_data = json.loads(content)
+                    # Handle both old format (list of flashcards) and new format (list of sessions)
+                    if sessions_data and isinstance(sessions_data[0], dict):
+                        if "flashcards" in sessions_data[0]:
+                            # New format: list of sessions
+                            sessions = sessions_data
+                        else:
+                            # Old format: list of individual flashcards - convert to sessions
+                            sessions = _convert_old_format_to_sessions(sessions_data)
         except (json.JSONDecodeError, IOError) as e:
-            st.warning(f"Error reading {log_file}: {e}. Starting a fresh log.")
-            all_logs = []
+            st.warning(f"Error reading {log_file}: {e}. Starting fresh.")
+            sessions = []
 
-    all_logs.append(log_entry)
+    current_time = datetime.now(timezone.utc)
+    flashcard_entry = {
+        "mode": mode,
+        "timestamp": current_time.isoformat(),
+        "quiz_data": data,
+    }
 
+    # Find or create session
+    if session_id:
+        # Find existing session
+        session_found = False
+        for session in sessions:
+            if session.get("session_id") == session_id:
+                session["flashcards"].append(flashcard_entry)
+                session["updated_at"] = current_time.isoformat()
+                session_found = True
+                break
+        if not session_found:
+            # Session not found, create new one
+            session_id = None
+
+    if not session_id:
+        # Create new session
+        session_id = f"session_{current_time.strftime('%Y%m%d_%H%M%S')}_{os.urandom(4).hex()}"
+        new_session = {
+            "session_id": session_id,
+            "topic": topic,
+            "user_id": st.session_state.get("user_id", "local_user"),
+            "started_at": current_time.isoformat(),
+            "updated_at": current_time.isoformat(),
+            "flashcards": [flashcard_entry],
+        }
+        sessions.append(new_session)
+
+    # Save sessions
     try:
         with open(log_file, 'w', encoding='utf-8') as f:
-            json.dump(all_logs, f, indent=4)
-        st.toast(f"Flashcard saved to {log_file}", icon="💾")
+            json.dump(sessions, f, indent=4)
+        st.toast(f"Flashcard saved to session", icon="💾")
     except IOError as e:
         st.error(f"Error writing to local file {log_file}: {e}")
+
+    return session_id
+
+
+def _convert_old_format_to_sessions(flashcards: List[Dict]) -> List[Dict]:
+    """
+    Convert old format (list of individual flashcards) to new format (sessions with flashcards).
+    Groups flashcards by topic and time proximity (within 1 hour).
+
+    Args:
+        flashcards: List of individual flashcard entries
+
+    Returns:
+        List of session dictionaries
+    """
+    if not flashcards:
+        return []
+
+    sessions = []
+    # Sort by timestamp
+    sorted_flashcards = sorted(
+        flashcards,
+        key=lambda x: x.get("timestamp", ""),
+    )
+
+    current_session = None
+    for flashcard in sorted_flashcards:
+        topic = flashcard.get("topic", "Unknown")
+        timestamp_str = flashcard.get("timestamp", "")
+        
+        try:
+            if isinstance(timestamp_str, str):
+                flashcard_time = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            else:
+                flashcard_time = timestamp_str
+        except (ValueError, AttributeError):
+            flashcard_time = datetime.now(timezone.utc)
+
+        # Check if we should start a new session
+        if current_session is None:
+            # Start new session
+            current_session = {
+                "session_id": f"session_{flashcard_time.strftime('%Y%m%d_%H%M%S')}_migrated",
+                "topic": topic,
+                "user_id": flashcard.get("user_id", "local_user"),
+                "started_at": flashcard_time.isoformat(),
+                "updated_at": flashcard_time.isoformat(),
+                "flashcards": [],
+            }
+        else:
+            # Check if this flashcard belongs to current session
+            # (same topic and within 1 hour of last flashcard in session)
+            last_flashcard_time_str = current_session["flashcards"][-1].get("timestamp", "")
+            try:
+                if isinstance(last_flashcard_time_str, str):
+                    last_time = datetime.fromisoformat(last_flashcard_time_str.replace('Z', '+00:00'))
+                else:
+                    last_time = last_flashcard_time_str
+            except (ValueError, AttributeError):
+                last_time = flashcard_time
+
+            time_diff = abs((flashcard_time - last_time).total_seconds())
+            same_topic = current_session["topic"] == topic
+            within_hour = time_diff < 3600  # 1 hour in seconds
+
+            if not (same_topic and within_hour):
+                # Save current session and start new one
+                sessions.append(current_session)
+                current_session = {
+                    "session_id": f"session_{flashcard_time.strftime('%Y%m%d_%H%M%S')}_migrated",
+                    "topic": topic,
+                    "user_id": flashcard.get("user_id", "local_user"),
+                    "started_at": flashcard_time.isoformat(),
+                    "updated_at": flashcard_time.isoformat(),
+                    "flashcards": [],
+                }
+
+        # Add flashcard to current session
+        # Handle both old format (quiz_data might be at top level) and new format
+        quiz_data = flashcard.get("quiz_data")
+        if not quiz_data:
+            # Old format might have data at top level, extract relevant fields
+            quiz_data = {
+                "quiz_text": flashcard.get("quiz_text", ""),
+                "answer": flashcard.get("answer", ""),
+                "flashcard_concept": flashcard.get("flashcard_concept", ""),
+                "flashcard_rationale": flashcard.get("flashcard_rationale", ""),
+            }
+        
+        current_session["flashcards"].append({
+            "mode": flashcard.get("mode", "concept"),
+            "timestamp": flashcard.get("timestamp", flashcard_time.isoformat()),
+            "quiz_data": quiz_data,
+        })
+        current_session["updated_at"] = flashcard_time.isoformat()
+
+    # Don't forget the last session
+    if current_session:
+        sessions.append(current_session)
+
+    return sessions
+
+
+def save_flashcard_to_json(topic: str, mode: str, data: dict, session_id: str = None, log_file: str = None) -> str:
+    """
+    Save flashcard data to a practice session (wrapper for backward compatibility).
+
+    Args:
+        topic: Topic name
+        mode: Difficulty mode
+        data: Flashcard data
+        session_id: Optional session ID to add to existing session
+        log_file: Optional log file path
+
+    Returns:
+        Session ID
+    """
+    return save_flashcard_to_session(topic, mode, data, session_id, log_file)
 
 
 def load_flashcard_history(log_file: str = None) -> List[Dict]:
     """
-    Load flashcard history from JSON file.
+    Load practice session history from JSON file.
 
     Args:
         log_file: Optional log file path
 
     Returns:
-        List of flashcard entries
+        List of practice session entries (each containing multiple flashcards)
     """
     if log_file is None:
         log_file = FLASHCARD_LOG_FILE
@@ -73,10 +237,78 @@ def load_flashcard_history(log_file: str = None) -> List[Dict]:
         with open(log_file, 'r', encoding='utf-8') as f:
             content = f.read().strip()
             if content:
-                return json.loads(content)
+                sessions_data = json.loads(content)
+                # Handle both old format (list of flashcards) and new format (list of sessions)
+                if sessions_data and isinstance(sessions_data[0], dict):
+                    if "flashcards" in sessions_data[0]:
+                        # New format: list of sessions
+                        return sessions_data
+                    else:
+                        # Old format: list of individual flashcards - convert to sessions
+                        return _convert_old_format_to_sessions(sessions_data)
+                return []
     except (json.JSONDecodeError, IOError) as e:
         st.warning(f"Error reading {log_file}: {e}")
     return []
+
+
+def save_flashcard_history(history: List[Dict], log_file: str = None) -> None:
+    """
+    Save practice session history to file.
+
+    Args:
+        history: List of practice session dictionaries
+        log_file: Optional log file path
+    """
+    if log_file is None:
+        log_file = FLASHCARD_LOG_FILE
+
+    try:
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        with open(log_file, 'w', encoding='utf-8') as f:
+            json.dump(history, f, indent=4)
+    except Exception as e:
+        st.warning(f"Unable to save flashcard history: {e}")
+
+
+def format_history_option_label(index: int, entry: Dict) -> str:
+    """
+    Format a practice session entry for display in selectbox.
+
+    Args:
+        index: Index of the entry in the original list
+        entry: Practice session dictionary
+
+    Returns:
+        Formatted label string
+    """
+    topic = entry.get("topic") or "Untitled Topic"
+    saved_at = entry.get("started_at") or entry.get("updated_at") or entry.get("timestamp")
+    flashcards_count = len(entry.get("flashcards", []))
+    
+    if saved_at:
+        try:
+            # Try parsing ISO format timestamp
+            if isinstance(saved_at, str):
+                # Handle both with and without timezone
+                if 'Z' in saved_at:
+                    stamp = datetime.fromisoformat(saved_at.replace('Z', '+00:00'))
+                elif '+' in saved_at or saved_at.endswith('UTC'):
+                    stamp = datetime.fromisoformat(saved_at)
+                else:
+                    # Try without timezone
+                    stamp = datetime.fromisoformat(saved_at)
+                    stamp = stamp.replace(tzinfo=timezone.utc)
+            else:
+                stamp = saved_at
+            if hasattr(stamp, 'astimezone'):
+                display = stamp.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            else:
+                display = str(saved_at)
+        except (ValueError, AttributeError):
+            display = str(saved_at)
+        return f"{topic} ({flashcards_count} flashcard{'s' if flashcards_count != 1 else ''}) - {display}"
+    return f"{topic} ({flashcards_count} flashcard{'s' if flashcards_count != 1 else ''})"
 
 
 def get_structured_quiz_prompt(
@@ -199,7 +431,11 @@ def generate_flashcard(
     if model is None:
         model = get_default_model()
 
-    context = retrieve_context_chroma(topic)
+    # Use retrieve_context_langchain instead of retrieve_context_chroma
+    # It uses the same vectorstore that's used for ingestion and is more reliable
+    from services.retrieval import retrieve_context_langchain
+    context = retrieve_context_langchain(topic, n_results=5)  # Get more results for better context
+    
     prompt = get_structured_quiz_prompt(
         topic, mode, context, previous_titles, current_concept_title
     )

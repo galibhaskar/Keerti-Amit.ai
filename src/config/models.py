@@ -1,5 +1,15 @@
 """LLM model configuration and system prompts."""
 
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Default provider and model configuration
+DEFAULT_PROVIDER = os.getenv("DEFAULT_PROVIDER", "GROQ")
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "llama-3.1-8b-instant")
+
 PROVIDERS = {
     "OLLAMA": {
         "MODEL": "llama3.2",

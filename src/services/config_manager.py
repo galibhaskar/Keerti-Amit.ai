@@ -45,22 +45,37 @@ def get_flashcard_statistics() -> Dict:
     history = load_flashcard_history()
     if not history:
         return {
+            "total_sessions": 0,
             "total_flashcards": 0,
             "topics_covered": 0,
             "modes_used": {},
+            "average_flashcards_per_session": 0,
         }
 
     topics = set()
     modes = {}
-    for entry in history:
-        topics.add(entry.get("topic", "Unknown"))
-        mode = entry.get("mode", "unknown")
-        modes[mode] = modes.get(mode, 0) + 1
+    total_flashcards = 0
+    
+    # History now contains sessions, each with multiple flashcards
+    for session in history:
+        topic = session.get("topic", "Unknown")
+        topics.add(topic)
+        
+        flashcards = session.get("flashcards", [])
+        total_flashcards += len(flashcards)
+        
+        for flashcard in flashcards:
+            mode = flashcard.get("mode", "unknown")
+            modes[mode] = modes.get(mode, 0) + 1
+    
+    avg_flashcards = total_flashcards / len(history) if history else 0
 
     return {
-        "total_flashcards": len(history),
+        "total_sessions": len(history),
+        "total_flashcards": total_flashcards,
         "topics_covered": len(topics),
         "modes_used": modes,
+        "average_flashcards_per_session": round(avg_flashcards, 1),
     }
 
 
