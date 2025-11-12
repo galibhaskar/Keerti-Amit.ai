@@ -292,9 +292,10 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 
-# --- 7. APPLICATION LAYOUT & FLOW ---
-st.markdown("## Focused Learning Mode")
-st.write(f"Enter a topic to begin learning. You can generate flashcards on challenging concepts, request simpler explanations, or see practical examples.")
+# --- 6. APPLICATION LAYOUT ---
+# st.markdown("# Rival-Ally AI") 
+st.markdown("## Practice Mode")
+st.write("Practice your knowledge with Quizes and Flashcards :)")
 
 # --- Starting Form (If a quiz hasn't started) ---
 if not st.session_state.quiz_started:

@@ -40,7 +40,7 @@ initialize_data_json()  # Ensure resource config file exists
 
 # --- Page Layout ---
 # st.title("Rival-Ally AI")
-st.markdown("# Rival.Ally AI")
+st.markdown("# Keerti-Amit AI")
 
 # Sidebar User Info
 with st.sidebar:
