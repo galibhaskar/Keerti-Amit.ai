@@ -201,7 +201,7 @@ st.markdown("""
 
 
 # --- 6. APPLICATION LAYOUT ---
-st.markdown("# Rival-Ally AI") 
+# st.markdown("# Rival-Ally AI") 
 st.markdown("## Practice Mode")
 st.write("Practice your knowledge with Quizes and Flashcards :)")
 
