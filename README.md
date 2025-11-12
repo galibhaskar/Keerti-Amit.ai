@@ -1,10 +1,36 @@
-## Second Brain
+## Second Brain (Keerti-Amit AI)
 
-A quick reference for getting a local Streamlit environment running with [uv](https://docs.astral.sh/uv/) dependency management.
+An AI-powered learning assistant application built with Streamlit, featuring practice modes, battle challenges, and document ingestion capabilities.
+
+### Project Structure
+
+```
+second-brain/
+├── src/                    # Main source code
+│   ├── app.py             # Main Streamlit application
+│   ├── config/            # Configuration modules
+│   │   ├── settings.py    # App settings and constants
+│   │   └── models.py      # LLM model configuration
+│   ├── core/              # Core business logic
+│   │   ├── database/      # Database operations
+│   │   ├── embeddings/    # Embedding models
+│   │   └── llm/           # LLM providers and generation
+│   ├── services/          # Business services
+│   │   ├── ingestion/     # Document ingestion and queue
+│   │   └── audio/         # Audio processing (speech/tts)
+│   ├── tools/             # LangChain tools
+│   ├── utils/             # Utility functions
+│   └── ui/                # User interface
+│       ├── pages/         # Streamlit pages
+│       └── navigation.py  # Page routing
+├── app.py                 # Entry point (redirects to src.app)
+├── pyproject.toml         # Project dependencies
+└── README.md              # This file
+```
 
 ### Prerequisites
 
-- Python 3.10+ (matches the default supported by uv)
+- Python 3.13+ (as specified in pyproject.toml)
 - `uv` installed:
   ```sh
   curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -23,20 +49,35 @@ If you prefer to avoid activating the environment manually, you can prepend futu
 
 ### Install dependencies
 
-- With a `requirements.txt` or `pyproject.toml` in place:
-  ```sh
-  uv pip install -r requirements.txt
-  # or, if using pyproject:
-  uv sync
-  ```
+```sh
+uv sync
+```
 
-### Run Streamlit with uv
+### Run Streamlit
 
 ```sh
 uv run streamlit run app.py
 ```
 
-Replace `app.py` with your Streamlit entrypoint if it lives elsewhere (for example `src/app.py`).
+Or directly:
+```sh
+uv run streamlit run src/app.py
+```
+
+### Configuration
+
+Create a `.streamlit/secrets.toml` file with your API keys:
+
+```toml
+GROQ_API_KEY = "your-groq-api-key-here"
+```
+
+### Features
+
+- **Data Ingestion**: Upload and process documents (PDF, TXT, images, etc.)
+- **Practice Mode**: Interactive flashcards and quizzes
+- **Battle Mode**: Voice-based interview challenges
+- **Vector Database**: ChromaDB for semantic search and RAG
 
 ### Useful uv commands
 
@@ -44,8 +85,7 @@ Replace `app.py` with your Streamlit entrypoint if it lives elsewhere (for examp
 - Remove unused packages: `uv pip cleanup`
 - Export the locked environment (helpful for deployment):
   ```sh
-  uv pip compile requirements.txt
+  uv pip compile pyproject.toml
   ```
 
 You now have a reproducible Streamlit setup managed entirely through uv.
-

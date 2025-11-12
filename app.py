@@ -1,3 +1,3 @@
-import streamlit as st
+"""Main application entry point - redirects to src.app."""
 
-st.title("Second Brain")
+from src.app import *
