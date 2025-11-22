@@ -1,11 +1,11 @@
-## Second Brain (Keerti-Amit AI)
+## Keerti-Amit.AI
 
 An AI-powered learning assistant application built with Streamlit, featuring practice modes, battle challenges, and document ingestion capabilities.
 
 ### Project Structure
 
 ```
-second-brain/
+Keerti-Amit.ai/
 ├── src/                    # Main source code
 │   ├── app.py             # Main Streamlit application
 │   ├── config/            # Configuration modules
@@ -40,7 +40,7 @@ second-brain/
 ### Create the virtual environment
 
 ```sh
-cd /path/to/second-brain
+cd /path/to/keerti-amit.ai
 uv venv
 source .venv/bin/activate
 ```
@@ -81,3 +81,8 @@ Create a `.env` file using`.env.local` with your API keys:
   ```
 
 You now have a reproducible Streamlit setup managed entirely through uv.
+---
+
+## Contributors:
+1. Veera Surya Bhaskar Gali (suryagali.se@gmail.com)
+2. Sahithi Reddy Mallidi (sahithireddy0299@gmail.com)
