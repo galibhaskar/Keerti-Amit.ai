@@ -79,8 +79,6 @@ Create a `.env` file using`.env.local` with your API keys:
   ```sh
   uv pip compile pyproject.toml
   ```
-
-You now have a reproducible Streamlit setup managed entirely through uv.
 ---
 
 ## Contributors:
